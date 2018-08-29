@@ -1,0 +1,233 @@
+<html>
+<h1>SNAKE!!</h1>
+<canvas id="gameCanv" width="800" height="600"></canvas>
+<script>
+  var canvas;
+  var canvasContext;
+  var framesPerSec = 5;
+  var intervalId = null;
+  var level = 0;
+
+  var snakePosition = [{x:400, y:300}];
+  var direction = newDirection = 1; //left -> -1, up -> -2, right -> 1, down -> 2
+  var snakeLength = 3; //how many body parts the snake have
+  const SNAKE_BODY_PART = 10; //unit of snakes length
+
+  var axis = null;
+  var newHead = {};
+
+  //variables for bonus food
+  var bonusFoodLocation = {};
+  var bonusFoodTime = null;
+  var timeNow = null;
+  var countSmallFood = 0;
+  var showBonusFood = true;
+  var bonusFoodEaten = true;
+
+  //variables for normal food
+  var foodEaten = true  ;
+  var foodX;
+  var foodY;
+
+  // variable for score
+  var gameScore = 0;
+  var levelScore = 0;
+
+  var lavalChange = false;
+  var intervalID = null;
+
+  //variable to detect when to stop
+  var end = false;
+
+  window.onload = function(){
+    canvas = document.getElementById('gameCanv');
+    canvasContext = canvas.getContext('2d');
+
+    intervalManager();
+
+    window.onkeydown = function(e) {
+      switch (e.keyCode) {
+          case 37:
+              newDirection = -1;
+              break;
+          case 38:
+              newDirection = -2;
+              break;
+          case 39:
+              newDirection = 1;
+              break;
+          case 40:
+              newDirection = 2;
+              break;
+      }
+    };
+  }
+
+  function intervalManager(){
+    clearInterval(intervalId);
+    framesPerSec += 5;
+    levelScore = 0;
+    level ++;
+    intervalID = setInterval(function(){
+                  calculatePosition();
+                  drawEverything();
+                }, 1000/framesPerSec);
+  }
+
+  function drawEverything(){
+    //draw the black background
+    drawRectangle(0, 0, canvas.width, canvas.height, 'black');
+
+    if(end){
+      viewFinalScreen();
+    } else{
+      //show Score
+      canvasContext.fillStyle = 'white';
+      var score = 'Score: '+ gameScore;
+      var showLevel = 'Level: '+ level;
+      canvasContext.fillText(score, canvas.width - 70, 20);
+      canvasContext.fillText(showLevel, canvas.width - 70, 35);
+
+      snakePosition.unshift(newHead); // Add the new head to the front
+      snakePosition = snakePosition.slice(0, snakeLength); // Enforce the snake's max length
+
+      // Detect wall collisions
+      // if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
+      //   end = true;
+      // }
+
+      var trackCollision = {};
+      //draw the snake
+      for (var i = 0; i < snakePosition.length; i++) {
+        var position = snakePosition[i];
+        drawRectangle(position.x, position.y, SNAKE_BODY_PART, SNAKE_BODY_PART, 'white');
+
+        if (i>0){
+          trackCollision[convertToString(position)] = true;
+        }
+      }
+
+      if (trackCollision[convertToString(newHead)]){
+        end = true;
+      }
+
+      if (foodEaten){
+        getFoodLocation();
+        foodEaten = false;
+      }
+      //draw food
+      drawRectangle(foodX, foodY, 10, 10, 'white');
+
+      //check for level change
+      if (levelScore >= 25){
+        intervalManager();
+      }
+
+      //draw Bonus food and time left for bonus
+      if(countSmallFood == 5 && showBonusFood){
+        bonusFoodTime = Date.now();
+        bonusFoodLocation = {x: generateRandomNumber(canvas.width), y:generateRandomNumber(canvas.height)};
+        showBonusFood = false;
+        bonusFoodEaten = false;
+      }
+
+      timeNow = Date.now();
+      if (!bonusFoodEaten && timeNow < bonusFoodTime + 5000){
+        drawRectangle(bonusFoodLocation.x, bonusFoodLocation.y, 20, 20, 'white');
+        canvasContext.fillStyle = 'white';
+        var timeLeft = '+' + ((bonusFoodTime + 5000 - timeNow)/1000) + 's';
+        canvasContext.fillText(timeLeft, bonusFoodLocation.x + 30, bonusFoodLocation.y);
+      }
+    }
+  }
+
+  function viewFinalScreen(){
+    canvasContext.fillStyle = 'white';
+    canvasContext.font = '40px serif';
+    canvasContext.textAlign = 'center';
+    canvasContext.fillText('GAME OVER!!', canvas.width/2, canvas.height/2 - 100);
+
+    var ScorePrint = 'Final Score: ' + gameScore;
+    canvasContext.fillText(ScorePrint, canvas.width/2, canvas.height/2);
+    canvasContext.fillText('Refresh to play again', canvas.width/2, canvas.height/2 + 100);
+  }
+
+  function convertToString(coordinates) {
+    return [coordinates.x, coordinates.y].join(',');
+  }
+
+  function getFoodLocation(){
+    foodX = generateRandomNumber(canvas.width - 2);
+    foodY = generateRandomNumber(canvas.height - 2);
+  }
+
+  function generateRandomNumber(upperLim){
+    return(Math.floor((Math.random() * upperLim) + 1));
+  }
+
+  function drawRectangle(topX, topY, width, height, drawColor){
+    canvasContext.fillStyle = drawColor;
+    canvasContext.fillRect(topX, topY, width, height);
+  }
+
+  function checkFood(){
+    // Check to see if normal food is eaten
+    if (!foodEaten &&  newHead.x >= foodX - 10 && newHead.x <= foodX + 10 && newHead.y >= foodY - 10 && newHead.y <= foodY + 10) {
+      foodEaten = true;
+      snakeLength ++;
+      gameScore ++;
+      levelScore ++;
+      if (countSmallFood == 5) {
+        countSmallFood = 0;
+        showBonusFood = true;
+      }
+      countSmallFood ++;
+    }
+
+    //check to see if bonus food is foodEaten
+    if (!bonusFoodEaten &&  newHead.x >= bonusFoodLocation.x - 20 && newHead.x <= bonusFoodLocation.x + 20 && newHead.y >= bonusFoodLocation.y - 20 && newHead.y <= bonusFoodLocation.y + 20) {
+      bonusFoodEaten = true;
+      snakeLength += 5;
+      gameScore += 10;
+      levelScore += 10;
+    }
+  }
+
+  function calculatePosition(){
+    newHead = {x:snakePosition[0].x, y:snakePosition[0].y};
+
+    //if only there is a change in axis, new direction will be registered
+    if (Math.abs(direction) !== Math.abs(newDirection)) {
+      direction = newDirection;
+    }
+
+    // select change in axis depending on the direction -- 1, -1 are X; 2, -2 are Y
+    if(Math.abs(direction) === 1){
+      axis = 'x';
+    } else{
+      axis = 'y';
+    }
+
+    if (direction < 0) {
+      newHead[axis] -= SNAKE_BODY_PART; // Move left or up
+
+      //if you hit the wall come throught the other side
+      if(newHead[axis] <= 0){
+        if(axis == 'x'){
+          newHead[axis] = canvas.width;
+        } else {
+          newHead[axis] = canvas.height;
+        }
+      }
+    } else {
+      newHead[axis] += SNAKE_BODY_PART; // Move right or down
+
+      //if you hit the wall come throught the other side
+      if((axis == 'x' && newHead[axis] >= canvas.width) || (axis == 'y' && newHead[axis] >= canvas.height)){
+        newHead[axis] = 0;
+      }
+    }
+    checkFood();
+  }
+</script>
+</html>
